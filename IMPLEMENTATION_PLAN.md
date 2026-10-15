@@ -1,213 +1,114 @@
-# Chrome Extension - Auto Login Implementation Plan
+# Implementation Notes
 
-## Analysis of Playwright Test Login Flow
+Design and architecture of the Generic Auto-Login extension.
 
-Based on the analysis of `C:\Code\Goaco\gcgs-cdp-fts-service\E2ETests`, the login process follows these steps:
+## Goals
 
-### Authentication Flow
+- Automate username, password and authenticator (TOTP) sign-in for any website.
+- Make sites, page sequence and credentials configurable, with no site-specific code.
+- Keep credentials local and encrypted; request minimal permissions.
 
-1. **Initial Navigation**
-   - Navigate to the target URL (Find a Tender Service)
-   - If redirected to Cognito login, handle it first
-
-2. **Cognito Authentication (Conditional)**
-   - URL check: `cdp-sirsi-development.auth.eu-west-2.amazoncognito.com`
-   - Input username and password
-   - Click submit button
-
-3. **One Login Authentication (Main Flow)**
-   - Click "Sign in" link
-   - Click sign in button (`#sign-in-button`)
-   - Enter email address (`input.govuk-input#email`)
-   - Click Continue button
-   - Enter password (`input.govuk-input#password`)
-   - Click Continue button
-
-4. **TOTP (Two-Factor Authentication)**
-   - Wait for OTP input box (`input.govuk-input.govuk-input--width-10#code`)
-   - Generate TOTP code using HMAC-SHA1 algorithm with Base32-decoded secret
-   - Time step: 30 seconds
-   - Code format: 6-digit zero-padded
-   - Enter generated code
-   - Click Continue button
-
-5. **Post-Login Cognito Check**
-   - If redirected back to Cognito, repeat Cognito authentication
-
-### Key Technical Details
-
-**TOTP Generation Algorithm:**
-- Algorithm: HMAC-SHA1
-- Secret: Base32-encoded string (stored in config)
-- Time step: Unix timestamp / 30 seconds
-- Output: 6-digit code (zero-padded)
-
-**HTTP Basic Authentication:**
-- Applied at browser context level
-- Username and password from config
-
-**Selectors Used:**
-- Sign in link: `[role="link"][name="Sign in"]`
-- Sign in button: `#sign-in-button`
-- Email input: `input.govuk-input#email`
-- Password input: `input.govuk-input#password`
-- Continue button: `button.govuk-button[type='submit']`
-- OTP input: `input.govuk-input.govuk-input--width-10#code`
-- Cognito username: `[role="textbox"][name="Username"]`
-- Cognito password: `[role="textbox"][name="Password"]`
-- Cognito submit: `[role="button"][name="submit"]`
-
-## Chrome Extension Implementation Plan
-
-### Architecture
+## Architecture
 
 ```
-LoginBrowserExtension/
-├── manifest.json              # Extension configuration
-├── background.js              # Background service worker
-├── content.js                 # Content script for DOM manipulation
-├── options.html               # Options page for user settings
-├── options.js                 # Options page logic
-├── popup.html                 # Extension popup UI
-├── popup.js                   # Popup logic
-├── utils/
-│   ├── totp.js               # TOTP generator utility
-│   └── storage.js            # Chrome storage wrapper
-├── styles/
-│   └── options.css           # Styling for options page
-└── icons/
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
+manifest.json         MV3 manifest; content script on <all_urls>; permission: storage
+background.js         Service worker (ES module)
+content.js            Content script (runs at document_end)
+popup.html / .js      Toolbar popup
+options.html / .js    Options page (ES module)
+utils/storage.js      Profile storage and AES-GCM encryption
+utils/totp.js         TOTP generator for the options page test button
+styles/options.css
 ```
 
-### Implementation Steps
+### Data model (`chrome.storage.local`)
 
-#### Phase 1: Extension Setup (Manifest V3)
-- Create `manifest.json` with required permissions:
-  - `activeTab`
-  - `storage` (for storing encrypted credentials)
-  - `scripting` (for content script injection)
-  - Host permissions for Find a Tender domains
-- Define content scripts and background worker
+| Key | Content |
+| --- | --- |
+| `gl_enabled` | Global on/off switch |
+| `gl_encryption_key` | Raw AES-GCM key bytes (generated on first save) |
+| `gl_profiles` | Array of profiles |
 
-#### Phase 2: TOTP Generator Utility
-- Port the C# TOTP algorithm to JavaScript
-- Implement Base32 decoder
-- Implement HMAC-SHA1 using Web Crypto API
-- Generate 6-digit codes based on current time
+```
+Profile {
+  id, name, enabled, autoStart,
+  credentials: { encrypted, iv }     // plain form: { username, password, totpSecret }
+  steps: Step[]                      // ordered; steps[0] is the entry step
+}
 
-#### Phase 3: Secure Credential Storage
-- Create options page for user to input:
-  - Email
-  - Password
-  - TOTP Secret Key
-  - Optional: Cognito username/password
-- Encrypt credentials before storing (using Web Crypto API)
-- Store in `chrome.storage.local`
+Step {
+  id, name,
+  action: 'username' | 'password' | 'userpass' | 'totp' | 'click',
+  urlPattern, matchType: 'wildcard' | 'regex',
+  selector, passwordSelector, submitSelector,   // optional CSS selectors
+  submit, delayMs
+}
+```
 
-#### Phase 4: Content Script Implementation
-- Detect login page URL patterns
-- Implement step-by-step login flow:
-  1. Wait for page load
-  2. Check for Cognito redirect
-  3. Fill One Login email and password
-  4. Generate and fill TOTP code
-  5. Click appropriate buttons with delays
-- Handle errors and edge cases
-- Add logging for debugging
+Per-tab run state lives in `chrome.storage.session` under `run_<tabId>` and is removed when the tab closes.
 
-#### Phase 5: Background Service Worker
-- Listen for navigation events
-- Inject content script when on login pages
-- Manage storage access
-- Handle cross-origin requests if needed
+## Login flow
 
-#### Phase 6: User Interface
-- Create popup with:
-  - Auto-login enable/disable toggle
-  - Status indicator
-  - Link to options page
-- Update badge/icon based on login status
+1. The content script runs on every page load and when the URL changes (SPA navigations are detected by polling every second).
+2. It loads the enabled profiles and the tab's run state (a run expires after 2 minutes of inactivity).
+3. **Selecting a step**:
+   - Manual trigger: the first step, in any profile, whose URL pattern matches the current page.
+   - Active run: a step of the run's profile that has not run yet and matches the URL.
+   - No run: a profile with `autoStart` whose entry step matches the URL. A run that already used the entry step blocks a restart for 30 seconds (5 seconds once finished) to prevent loops after a failed login.
+4. The step is recorded as run before it executes, so each step runs at most once per run.
+5. Credentials are decrypted, the action is executed, and the page is re-evaluated after 2.5 seconds for SPAs that move to the next step without reloading.
 
-#### Phase 7: Security Considerations
-- Encrypt stored credentials using AES-GCM
-- Use chrome.storage.local (not sync for sensitive data)
-- Clear credentials on uninstall
-- Add option to clear stored credentials
-- Implement basic rate limiting for TOTP generation
+### Step actions
 
-#### Phase 8: Testing & Polish
-- Test on all target URLs
-- Add error handling and user feedback
-- Create user documentation
-- Handle edge cases:
-  - Network failures
-  - Changed selectors
-  - Session timeouts
-  - Multiple tabs
+| Action | Behavior |
+| --- | --- |
+| `username` | Fill the username field |
+| `password` | Fill the password field |
+| `userpass` | Fill both fields on one page |
+| `totp` | Generate a code (waits if it is about to expire) and fill it |
+| `click` | Click the element matching the required CSS selector |
 
-### Security Best Practices
+Fields are located with the step's selector if set, otherwise by a prioritized list of default selectors (for example `input[type="email"]`, `input[type="password"]`, `input[autocomplete="one-time-code"]`). Values are set through the native value setter followed by `input` and `change` events so frameworks such as React pick them up.
 
-1. **Credential Storage**
-   - Never store credentials in plain text
-   - Use Web Crypto API for encryption
-   - Generate unique encryption key per installation
-   - Store encryption key in secure location
+### Submitting
 
-2. **Content Security Policy**
-   - Strict CSP in manifest
-   - No inline scripts
-   - No eval()
+If "Submit after filling" is on, the submit control is chosen in this order: the step's submit selector; `[type=submit]` in the same form, then in the document; a button whose text looks like "Sign in", "Continue", "Next" etc.; the only button in the form. As fallbacks it calls `form.requestSubmit()` or sends an Enter key press to the field.
 
-3. **Minimal Permissions**
-   - Request only necessary permissions
-   - Use activeTab instead of broad host permissions where possible
+### URL matching
 
-4. **User Transparency**
-   - Clear indication when auto-login is active
-   - Easy way to disable feature
-   - Visible security warnings
+- **Wildcard**: `*` matches any characters, case-insensitive; trailing slash ignored. The query string and hash are ignored unless the pattern contains `?` or `#`.
+- **Regex**: JavaScript regular expression tested against the full URL.
 
-### Configuration Required
+## Security
 
-Users will need to provide:
-1. **Email** - One Login email address
-2. **Password** - One Login password
-3. **TOTP Secret Key** - Base32-encoded secret for 2FA
-4. **Cognito Username** (optional) - If accessing SIRSI
-5. **Cognito Password** (optional) - If accessing SIRSI
+1. Credentials are encrypted with AES-GCM (256-bit key, random 12-byte IV per save) before being stored.
+2. The key is stored in the same browser profile, so protection is against casual inspection only.
+3. No network requests; no analytics.
+4. Options page DOM is built with `textContent`/properties, not HTML strings, to avoid injection.
+5. Minimal permission set (`storage`). The content script is injected everywhere but does nothing unless a configured step matches.
+6. Users can clear all stored data from the options page.
 
-### URLs to Monitor
+## Design decisions
 
-- `https://fts.dev.supplier-information.find-tender.service.gov.uk`
-- `https://dev.supplier-information.find-tender.service.gov.uk`
-- `https://fts-app.dev.supplier-information.find-tender.service.gov.uk`
-- `https://cdp-sirsi-development.auth.eu-west-2.amazoncognito.com`
+- **Per-step URL matching instead of fixed flow code**: lets any multi-page sign-in be described as data.
+- **Run state in the service worker session storage**: survives page navigations within a tab without persisting to disk.
+- **Run-once per step**: avoids infinite loops when credentials are wrong.
+- **Auto-detected selectors with override**: works for most standard forms, with a way out when it does not.
 
-### Next Steps
+## Potential challenges
 
-1. Set up basic Chrome extension structure
-2. Implement TOTP generator (critical component)
-3. Create options page for credential input
-4. Develop content script for auto-filling
-5. Add security layer for credential storage
-6. Test thoroughly on target websites
-7. Package and document
+| Challenge | Mitigation |
+| --- | --- |
+| Site markup changes | Override selectors per step |
+| Late-rendered fields | Content script polls up to 10 seconds for elements |
+| TOTP clock drift | Test in the options page; keep system time accurate |
+| Login in iframes | Not supported (content script is not injected into subframes) |
+| Multiple profiles matching one URL | The first matching profile in list order wins |
 
-### Potential Challenges
+## Possible future work
 
-1. **Selector Changes** - Website updates may break selectors
-   - Solution: Use multiple selector strategies (ID, class, ARIA labels)
-
-2. **Timing Issues** - Race conditions with dynamic content
-   - Solution: Use MutationObserver and proper waiting strategies
-
-3. **Security** - Storing sensitive credentials
-   - Solution: Strong encryption, user education
-
-4. **TOTP Sync** - Time drift on user's machine
-   - Solution: Add time offset configuration option
-
-5. **Browser Detection** - Some sites block automation
-   - Solution: Mimic human behavior, add random delays
+- Export/import profiles
+- Per-profile host allow-list with optional host permissions
+- Success/failure notifications
+- Keyboard shortcut for manual trigger
+- Optional master password for encryption

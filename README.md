@@ -66,4 +66,9 @@ utils/totp.js     TOTP generator (options page test)
 styles/options.css
 ```
 
-Note: `IMPLEMENTATION_PLAN.md`, `PROJECT_SUMMARY.md`, `QUICK_START.md` and `TESTING_GUIDE.md` describe the previous One Login-specific version.
+## More documentation
+
+- [QUICK_START.md](QUICK_START.md): setup walkthrough and troubleshooting
+- [TESTING_GUIDE.md](TESTING_GUIDE.md): manual test plan
+- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md): design and architecture
+- [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md): project overview

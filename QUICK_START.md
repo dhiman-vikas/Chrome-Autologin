@@ -1,165 +1,137 @@
 # Quick Start Guide
 
-Get the Chrome extension running in 5 minutes!
+Set up a login profile for any website in a few minutes.
 
-## ⚡ Prerequisites
+## Prerequisites
 
-- Chrome, Edge, or Chromium-based browser
-- Your One Login credentials (email, password)
-- Your TOTP secret key (Base32 format)
+- Chrome, Edge, or another Chromium-based browser
+- The credentials for the site you want to log into (username/email, password)
+- Optional: the TOTP secret (Base32) if the site uses an authenticator app
+- The URL of each page in the site's sign-in sequence
 
-## 🚀 5-Minute Setup
+## Setup
 
-### Step 1: Generate Icons (30 seconds)
+### Step 1: Icons
 
-1. Open `icon-generator.html` in browser
-2. Click "Download" under each icon (16, 48, 128)
-3. Save all three files in `icons/` folder
+The `icons/` folder already contains `icon16.png`, `icon48.png` and `icon128.png`. To use your own, open `icon-generator.html` in a browser, download the three sizes and replace the files.
 
-### Step 2: Install Extension (1 minute)
+### Step 2: Install the extension
 
-1. Open browser
-2. Go to `chrome://extensions/`
-3. Enable **Developer mode** (top right toggle)
-4. Click **Load unpacked**
-5. Select `LoginBrowserExtension` folder
-6. Done! Extension appears in toolbar
+1. Open `chrome://extensions/`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked** and select this folder
+4. The options page opens on first install
 
-### Step 3: Configure Credentials (2 minutes)
+Reload any tabs that were open before installing, so the content script is injected.
 
-1. Click extension icon in toolbar
-2. Click **Open Settings**
-3. Fill in the form:
+### Step 3: Create a profile
+
+1. In the options page, click **Add Profile**
+2. Enter a profile name (for example `Company portal`)
+3. Fill in the credentials:
    ```
-   Email: your-email@example.com
-   Password: your-password
-   TOTP Secret: YOUR-BASE32-SECRET
+   Username / email: your-email@example.com
+   Password:         your-password
+   TOTP secret:      (optional) YOUR-BASE32-SECRET
    ```
-4. Click **Save Credentials**
-5. See success message ✅
+4. Define the login sequence. Each step is one page:
 
-### Step 4: Test (1 minute)
+   | Step | Action | Page URL pattern |
+   | --- | --- | --- |
+   | 1 (entry page) | Fill username | `https://login.example.com/enter-email` |
+   | 2 | Fill password | `https://login.example.com/enter-password` |
+   | 3 | Fill authenticator code | `https://login.example.com/enter-code` |
 
-1. Click **Test TOTP Generator** button
-2. Verify 6-digit code appears
-3. Optional: Compare with authenticator app
-4. If match → Ready to use! 🎉
+   - If username and password are on the same page, use one **Fill username + password** step.
+   - If a page needs a button clicked first (for example "Sign in with SSO"), add a **Click an element only** step and set its CSS selector under *Advanced*.
+5. Click **Save All**
 
-### Step 5: Use It! (30 seconds)
+### Step 4: Test the TOTP secret (if used)
 
-1. Navigate to Find a Tender Service
-2. Watch it auto-login 🔐
-3. Done!
+1. Click **Test TOTP Generator** in the profile's credentials section
+2. Compare the 6-digit code with your authenticator app
+3. If they match, the secret is correct
 
-## 🎯 One Login Secret Key
+### Step 5: Use it
 
-### Where to Find It
+- **Automatic**: open the URL that matches step 1. The extension runs each step as the browser reaches its page.
+- **Manual**: on a login page, click the extension icon and choose **Trigger Login Now**.
 
-When setting up 2FA:
-1. Look for "Can't scan QR code?"
-2. Click "Enter key manually"
-3. Copy the string shown (e.g., `JBSWY3DPEHPK3PXP`)
-4. Paste into extension settings
+## URL patterns
 
-### Format Example
+| Type | Example | Matches |
+| --- | --- | --- |
+| Wildcard | `https://example.com/login` | That page, ignoring any query string or hash |
+| Wildcard | `https://*.example.com/signin*` | Any subdomain, any path starting with `/signin` |
+| Regular expression | `^https://example\.com/(login\|auth)` | Tested against the full URL |
+
+Wildcard patterns only consider the query string and hash if the pattern itself contains `?` or `#`.
+
+## Where to find a TOTP secret
+
+When setting up an authenticator app on a site:
+
+1. Look for "Can't scan the QR code?" or "Enter key manually"
+2. Copy the string shown (for example `JBSWY3DPEHPK3PXP`)
+3. Paste it into the profile's TOTP secret field
+
 ```
-✅ Valid:   JBSWY3DPEHPK3PXP
-✅ Valid:   JBSW Y3DP EHPK 3PXP (spaces OK)
-❌ Invalid: 123456
-❌ Invalid: abc@def.com
-```
-
-## 🎮 Quick Controls
-
-### Extension Popup
-
-Click extension icon to:
-- 📊 **View Status**: Auto-login on/off, credentials saved
-- ▶️ **Trigger Login**: Manual login on current page
-- 🔄 **Toggle Auto-Login**: Quick enable/disable
-- ⚙️ **Open Settings**: Configure credentials
-
-### Keyboard Shortcuts
-
-No keyboard shortcuts by default. Add via:
-`chrome://extensions/shortcuts`
-
-## 🔧 Quick Troubleshooting
-
-### "Login not working"
-
-1. Check console (F12) for errors
-2. Verify credentials saved (check popup status)
-3. Test TOTP generator in settings
-4. Ensure auto-login is enabled
-
-### "TOTP code invalid"
-
-1. Check your computer's time is accurate
-2. Verify secret key is Base32 format
-3. Test generator and compare with authenticator app
-
-### "Extension not loading"
-
-1. Check all files are present
-2. Verify icons exist in `icons/` folder
-3. Look for errors in `chrome://extensions/`
-
-## 📁 Required Files Checklist
-
-Before loading:
-```
-✅ manifest.json
-✅ background.js
-✅ content.js
-✅ popup.html / popup.js
-✅ options.html / options.js
-✅ utils/totp.js
-✅ utils/storage.js
-✅ styles/options.css
-✅ icons/icon16.png
-✅ icons/icon48.png
-✅ icons/icon128.png
+Valid:   JBSWY3DPEHPK3PXP
+Valid:   JBSW Y3DP EHPK 3PXP   (spaces are ignored)
+Invalid: 123456                (digits 0, 1, 8, 9 are not Base32)
+Invalid: abc@def.com
 ```
 
-## 🌐 Supported Sites
+## Toolbar popup
 
-Works on:
-- Find a Tender Service (all environments)
-- One Login (signin.service.gov.uk)
-- AWS Cognito (optional)
+- **Auto-Login**: global on/off status
+- **Profiles**: number of enabled profiles
+- **Trigger Login Now**: run the step matching the current page, then continue through the profile's remaining steps
+- **Toggle Auto-Login**: enable or disable all automatic logins
+- **Open Settings**: open the options page
 
-## 🔐 Security Notes
+## Troubleshooting
 
-- ✅ Credentials encrypted locally
-- ✅ No external servers contacted
-- ✅ No analytics or tracking
-- ✅ Open source - review the code!
+### Login does not start
 
-## 📚 More Information
+1. Check the popup shows Auto-Login ON and at least one active profile
+2. Confirm the URL pattern of step 1 matches the page URL
+3. Reload the tab (content script only loads on pages opened after install)
+4. Open the console (F12) and filter by `[Auto-Login]`
 
-- **Full docs**: See `README.md`
-- **Implementation**: See `IMPLEMENTATION_PLAN.md`
-- **Testing**: See `TESTING_GUIDE.md`
+### A field is not filled or the wrong field is filled
 
-## 🆘 Need Help?
+1. Open the step's **Advanced** section
+2. Enter a CSS selector for the input (for example `#username`)
+3. Optionally set a selector for the submit button
 
-1. Read `README.md` troubleshooting section
-2. Check browser console for errors
-3. Test TOTP generator
-4. Verify all files are present
-5. Try clearing data and reconfiguring
+### The form is filled but not submitted
 
-## 🎉 You're Ready!
+- Set the **Submit button selector** in Advanced, or
+- Make sure **Submit after filling** is checked
 
-Extension is now:
-- ✅ Installed
-- ✅ Configured  
-- ✅ Tested
-- ✅ Ready to use
+### TOTP code rejected
 
-Just navigate to Find a Tender Service and watch the magic! 🚀
+1. Check your computer's clock is accurate
+2. Verify the secret is Base32
+3. Compare with **Test TOTP Generator** and your authenticator app
 
----
+### Login stops after a failed attempt
 
-**Pro Tip**: Pin the extension to your toolbar for easy access to settings and manual trigger.
+This is intentional. Each step runs once per login attempt (to avoid loops), and an attempt expires after 2 minutes of inactivity. Fix the configuration and open the entry URL again, or use **Trigger Login Now**.
+
+## Security notes
+
+- Credentials are encrypted with AES-GCM before being stored in `chrome.storage.local`
+- The encryption key is stored in the same browser profile, so this protects against casual inspection only
+- No data is sent to any server, and there is no analytics or tracking
+- Do not enable browser sync for extension data, and use only on trusted devices
+
+## More information
+
+- Full documentation: [README.md](README.md)
+- Design and architecture: [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
+- Testing: [TESTING_GUIDE.md](TESTING_GUIDE.md)
+- Project overview: [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)
+
+Tip: pin the extension to your toolbar for quick access to the manual trigger.

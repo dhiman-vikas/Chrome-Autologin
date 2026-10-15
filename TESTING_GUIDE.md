@@ -1,317 +1,210 @@
-# Chrome Extension Testing Guide
+# Testing Guide
 
-## Pre-Testing Setup
+Manual test plan for the Generic Auto-Login extension. Tests use a placeholder site (`https://login.example.com/...`); substitute a real login flow you have an account for.
 
-### 1. Generate Icons
+## Setup
 
-1. Open `icon-generator.html` in Chrome
-2. Download all three icons (16x16, 48x48, 128x128)
-3. Save them in the `icons/` folder as:
-   - `icon16.png`
-   - `icon48.png`  
-   - `icon128.png`
+1. Verify the files are present:
+   ```
+   manifest.json
+   background.js
+   content.js
+   popup.html / popup.js
+   options.html / options.js
+   utils/storage.js, utils/totp.js
+   styles/options.css
+   icons/icon16.png, icon48.png, icon128.png
+   ```
+2. Open `chrome://extensions/`, enable **Developer mode**, click **Load unpacked** and select this folder.
+3. Pin the extension to the toolbar.
 
-### 2. Verify File Structure
+**Expected**: the extension loads without errors, the options page opens on first install, and the badge shows `ON`.
 
-Ensure all files are present:
-```
-LoginBrowserExtension/
-├── manifest.json
-├── background.js
-├── content.js
-├── popup.html
-├── popup.js
-├── options.html
-├── options.js
-├── utils/
-│   ├── totp.js
-│   └── storage.js
-├── styles/
-│   └── options.css
-└── icons/
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
-```
+## Options page
 
-## Installation Testing
+### Profiles
 
-### Step 1: Load Extension
+1. Click **Add Profile**.
+   **Expected**: a profile named "New login" appears with three steps (username, password, TOTP).
+2. Click **Save All** with the URL patterns empty.
+   **Expected**: error "page URL pattern is required".
+3. Clear the profile name and save.
+   **Expected**: error "Every profile needs a name".
+4. Set a regex URL pattern such as `(` with match type *Regular expression*.
+   **Expected**: error "invalid regular expression".
+5. Add a *Click an element only* step with no selector.
+   **Expected**: error that a CSS selector is required.
+6. Use an action that needs a credential (for example *Fill password*) with the password empty.
+   **Expected**: error "missing password".
+7. Enter a TOTP secret such as `123456`.
+   **Expected**: error that the secret must be Base32.
+8. Enter valid values and click **Save All**.
+   **Expected**: "Settings saved".
 
-1. Open Chrome/Edge browser
-2. Navigate to `chrome://extensions/`
-3. Enable "Developer mode" (toggle in top right)
-4. Click "Load unpacked"
-5. Select the `LoginBrowserExtension` folder
-6. **Expected**: Extension loads without errors
+### Steps
 
-### Step 2: Verify Extension Appears
+1. Use the up/down buttons to reorder steps.
+   **Expected**: steps swap; the first step is labelled "(entry page)".
+2. Remove a step with the remove button.
+   **Expected**: the step disappears and numbering updates.
+3. Change the action to *Fill username + password* and open **Advanced**.
+   **Expected**: a separate password field selector is shown.
 
-1. Check extension appears in extensions list
-2. Click puzzle icon in toolbar → Pin extension
-3. **Expected**: Extension icon visible in toolbar
-4. **Expected**: Badge shows "ON"
+### TOTP generator
 
-## Options Page Testing
+1. Enter a valid Base32 secret and click **Test TOTP Generator**.
+   **Expected**: a 6-digit code is displayed.
+2. Compare it with an authenticator app using the same secret.
+   **Expected**: the codes match.
+3. Click the button with an empty secret.
+   **Expected**: error "Enter a TOTP secret first".
 
-### Test 1: Open Options Page
+### Persistence and clearing
 
-1. Click extension icon
-2. Click "Open Settings" button
-3. **Expected**: Options page opens in new tab
-4. **Expected**: Form fields are empty (first run)
+1. Save a profile, close the options page and reopen it from the popup.
+   **Expected**: the profile, steps and credentials are loaded.
+2. Click **Clear All Data** and confirm.
+   **Expected**: all profiles are removed. Reload the page and verify they remain empty.
+3. Delete a single profile with **Delete Profile**.
+   **Expected**: a confirmation appears and only that profile is removed.
 
-### Test 2: Save Credentials
+## Popup
 
-**Test Case 2.1: Validation**
-1. Leave all fields empty
-2. Click "Save Credentials"
-3. **Expected**: Error message "Please fill in all One Login credentials"
+1. Open the popup.
+   **Expected**: "Auto-Login: ON/OFF" and "Profiles: N active" or "None".
+2. Click **Toggle Auto-Login**.
+   **Expected**: status flips, a message appears, and the toolbar badge changes between ON and OFF.
+3. Click **Open Settings**.
+   **Expected**: the options page opens.
+4. Disable a profile in the options page and save.
+   **Expected**: the popup's active profile count decreases.
 
-**Test Case 2.2: Invalid Email**
-1. Enter invalid email: `notanemail`
-2. Fill password and TOTP secret
-3. Click "Save Credentials"
-4. **Expected**: Error message "Please enter a valid email address"
+## Login flow
 
-**Test Case 2.3: Invalid TOTP Secret**
-1. Enter valid email
-2. Enter password
-3. Enter invalid TOTP secret: `123456` (not Base32)
-4. Click "Save Credentials"
-5. **Expected**: Error message about invalid TOTP format
+Prerequisites: a saved profile with valid credentials, auto-login ON, and tabs reloaded after installing.
 
-**Test Case 2.4: Valid Credentials**
-1. Enter valid email: `test@example.com`
-2. Enter password: `TestPassword123`
-3. Enter valid Base32 TOTP secret (from your test account)
-4. Click "Save Credentials"
-5. **Expected**: Success message "✅ Credentials saved successfully!"
+### Multi-page flow
 
-### Test 3: TOTP Generator
+1. Configure a profile with steps: username page, password page, TOTP page (or the pages of your site).
+2. Open the URL matching step 1.
+   **Expected**: the username is filled and submitted.
+3. When the password page loads:
+   **Expected**: the password is filled and submitted.
+4. When the code page loads:
+   **Expected**: a TOTP code is filled and submitted, and login completes.
+5. Open the console (F12) and filter by `[Auto-Login]`.
+   **Expected**: a log line per step run, for example `Profile "..." : running step "..."`.
 
-1. Enter a valid TOTP secret
-2. Click "Test TOTP Generator"
-3. **Expected**: Displays 6-digit code
-4. **Expected**: Code format matches: `123456`
-5. **Optional**: Verify code matches authenticator app
+### Single-page login (username + password)
 
-### Test 4: Load Saved Credentials
+1. Configure one *Fill username + password* step.
+2. Open the matching URL.
+   **Expected**: both fields are filled and the form is submitted.
 
-1. Close options page
-2. Click extension icon → "Open Settings"
-3. **Expected**: Previously saved credentials are loaded
-4. **Expected**: Email and TOTP secret visible
-5. **Expected**: Password field shows dots (secured)
+### Click step
 
-### Test 5: Clear All Data
+1. Add a *Click an element only* step with a valid selector (for example `button#sso`).
+2. Reach the matching page.
+   **Expected**: the element is clicked, then the next step runs on its page.
 
-1. Click "Clear All Data" button
-2. **Expected**: Confirmation dialog appears
-3. Click "OK"
-4. **Expected**: Success message
-5. **Expected**: All form fields cleared
-6. Refresh page
-7. **Expected**: Fields still empty (data actually cleared)
+### Manual trigger
 
-## Popup Testing
+1. Disable auto-login.
+2. Navigate to a page matching one of the steps and click **Trigger Login Now**.
+   **Expected**: the matching step runs and the popup shows "Ran step: ...". Remaining steps run as their pages load.
 
-### Test 1: Status Display
+### Selectors and submit options
 
-1. Click extension icon
-2. **Expected**: Popup opens
-3. **Expected**: Shows "Auto-Login: ON" or "OFF"
-4. **Expected**: Shows "Credentials: Saved" or "Not Set"
+1. Use a page where auto-detection picks the wrong input and set a CSS selector under **Advanced**.
+   **Expected**: the specified field is filled.
+2. Uncheck **Submit after filling**.
+   **Expected**: the field is filled but the form is not submitted.
+3. Set a **Delay before running** of 2000 ms.
+   **Expected**: the step runs about two seconds after the page matches.
 
-### Test 2: Toggle Auto-Login
+### Wildcard and regex patterns
 
-1. Click "Toggle Auto-Login" button
-2. **Expected**: Status changes (ON ↔ OFF)
-3. **Expected**: Success message appears
-4. **Expected**: Badge on extension icon updates
+| Pattern | Match type | URL | Expected |
+| --- | --- | --- | --- |
+| `https://login.example.com/signin` | Wildcard | `https://login.example.com/signin?next=/home` | Match |
+| `https://*.example.com/signin*` | Wildcard | `https://a.example.com/signin/step2` | Match |
+| `https://login.example.com/signin` | Wildcard | `https://login.example.com/other` | No match |
+| `^https://login\.example\.com/` | Regular expression | `https://login.example.com/x` | Match |
 
-### Test 3: Open Options
+### Loop prevention and run expiry
 
-1. In popup, click "Open Settings"
-2. **Expected**: Options page opens
+1. Save a profile with a wrong password.
+2. Open the entry URL.
+   **Expected**: each step runs once; when the site redirects back to the entry page, the login does not restart immediately (30 second cool-down).
+3. Leave a run idle for more than 2 minutes, then open the entry URL again.
+   **Expected**: a new run starts.
 
-## Content Script Testing
+### Error handling
 
-### Test 1: Detection on Login Page
+| Case | Steps | Expected |
+| --- | --- | --- |
+| Auto-login off | Toggle off, open entry URL | Nothing runs |
+| No profiles | Clear all data, open any page | Nothing runs |
+| Profile disabled | Uncheck "Profile enabled", save | Nothing runs |
+| Wrong page | Click **Trigger Login Now** on an unrelated site | Error "Current page does not match any login step" |
+| Missing field | Use a selector that does not exist | Console error `... field not found` after about 10 seconds |
+| Start automatically off | Uncheck "Start automatically on step 1 URL" | Login only starts via **Trigger Login Now** |
 
-1. Navigate to: `https://signin.service.gov.uk/`
-2. Open browser console (F12)
-3. Filter console for "FTS Auto-Login"
-4. **Expected**: See "[FTS Auto-Login] Content script loaded"
-5. **Expected**: See "[FTS Auto-Login] Login page detected"
+## Security
 
-### Test 2: Auto-Fill Behavior (Manual Test)
+1. Save credentials, then open DevTools for the extension (service worker from `chrome://extensions/`) and run:
+   ```javascript
+   chrome.storage.local.get(null, console.log)
+   ```
+   **Expected**: each profile's `credentials` is an object with `encrypted` and `iv` arrays, not plain text.
+2. Save the same credentials twice.
+   **Expected**: the `encrypted` and `iv` values differ each time.
+3. Close and reopen the browser.
+   **Expected**: profiles still load in the options page.
+4. Confirm that no network requests are made by the extension (DevTools Network tab for the service worker).
 
-**Prerequisites**: 
-- Have valid credentials saved
-- Auto-login enabled
+## Performance and compatibility
 
-**Steps**:
-1. Navigate to Find a Tender Service login page
-2. Wait 1-2 seconds
-3. **Expected**: Email field auto-fills
-4. **Expected**: Continue button clicks automatically
-5. **Expected**: Password field auto-fills
-6. **Expected**: TOTP code generates and fills
-7. **Expected**: Login completes (or attempts to)
+- The content script runs on all URLs but should do nothing on non-matching pages. Check that browsing unrelated sites shows no console output from `[Auto-Login]` and no noticeable slowdown.
+- Check memory use in the browser Task Manager (Shift+Esc).
+- Test on Chrome, Edge and any other Chromium-based browser you use.
 
-**Note**: For full testing, you need a real test account
+## Known limitations
 
-### Test 3: Manual Trigger
+1. Websites that change their markup may require updating selectors.
+2. TOTP requires an accurate system clock.
+3. Pages rendered in cross-origin iframes are not handled (the content script does not run in subframes).
+4. Run state is tracked per tab; several simultaneous logins in different tabs are independent.
 
-1. Navigate to a login page
-2. Click extension icon
-3. Click "Trigger Login Now"
-4. **Expected**: Login process starts
-5. **Expected**: Popup shows success message
+## Debugging
 
-### Test 4: Error Handling
+- Console filter: `[Auto-Login]`
+- Check the popup: auto-login ON and the profile is enabled
+- Re-check the URL pattern against the actual page URL (including `http` vs `https` and subdomains)
+- Use **Advanced** selectors when auto-detection fails
+- To reset everything: **Clear All Data** in the options page, then reconfigure
 
-**Test Case 4.1: No Credentials**
-1. Clear all data in options
-2. Navigate to login page
-3. **Expected**: Console shows warning about no credentials
-4. **Expected**: No auto-fill occurs
-
-**Test Case 4.2: Wrong Page**
-1. Navigate to `https://google.com`
-2. Click extension icon
-3. Click "Trigger Login Now"
-4. **Expected**: Error message "Not on a supported login page"
-
-## Security Testing
-
-### Test 1: Encrypted Storage
-
-1. Save credentials in options
-2. Open Chrome DevTools (F12)
-3. Go to Application → Storage → Local Storage
-4. Find extension's storage
-5. **Expected**: Credentials data is encrypted (not readable)
-6. **Expected**: See objects with `encrypted` and `iv` properties
-
-### Test 2: Credential Persistence
-
-1. Save credentials
-2. Close browser completely
-3. Reopen browser
-4. Open extension options
-5. **Expected**: Credentials still loaded
-6. **Expected**: Can decrypt and display
-
-### Test 3: Encryption Key Uniqueness
-
-1. Clear all data
-2. Save test credentials
-3. Note encrypted values in DevTools
-4. Clear all data again
-5. Save same credentials
-6. **Expected**: Encrypted values are different (new encryption each time)
-
-## Performance Testing
-
-### Test 1: Initialization Speed
-
-1. Reload extension
-2. Note time to load
-3. **Expected**: Loads in < 1 second
-4. **Expected**: No console errors
-
-### Test 2: Page Load Impact
-
-1. Navigate to login page with extension enabled
-2. Note page load time
-3. Disable extension
-4. Reload page and note time
-5. **Expected**: Minimal difference (< 100ms)
-
-### Test 3: Memory Usage
-
-1. Open Chrome Task Manager (Shift+Esc)
-2. Find extension process
-3. **Expected**: Memory usage < 50 MB
-4. **Expected**: No memory leaks over time
-
-## Browser Compatibility Testing
-
-Test on:
-- ✅ Google Chrome (latest)
-- ✅ Microsoft Edge (latest)
-- ✅ Brave Browser (latest)
-- ✅ Opera (latest)
-
-## Known Issues & Limitations
-
-Document any issues found during testing:
-
-1. **Timing Issues**: May need to adjust wait times in content script
-2. **Selector Changes**: Website updates can break selectors
-3. **TOTP Sync**: System time must be accurate
-4. **Multiple Tabs**: Opening multiple login pages simultaneously may cause issues
-
-## Test Completion Checklist
+## Completion checklist
 
 - [ ] Extension installs without errors
-- [ ] Icons display correctly
-- [ ] Options page opens and functions
-- [ ] Credentials save and load correctly
-- [ ] TOTP generator produces valid codes
-- [ ] Auto-login triggers on correct pages
-- [ ] Manual trigger works from popup
+- [ ] Profiles and steps can be created, edited, reordered and deleted
+- [ ] Validation messages appear for invalid input
+- [ ] TOTP generator matches an authenticator app
 - [ ] Credentials are encrypted in storage
-- [ ] Toggle auto-login works
-- [ ] Clear data removes all credentials
-- [ ] No console errors during normal operation
-- [ ] Works across all supported domains
-- [ ] Popup UI displays correct status
-- [ ] Badge updates reflect status
+- [ ] Multi-page, single-page and click flows work
+- [ ] Manual trigger works from the popup
+- [ ] Global toggle and per-profile enable work
+- [ ] Failed logins do not loop
+- [ ] Clear All Data removes everything
+- [ ] No unexpected console errors
 
-## Debugging Tips
+## Test report template
 
-### Console Filtering
-
-In browser console, filter by: `FTS Auto-Login`
-
-### Common Issues
-
-1. **"Cannot read property"**: Check element selectors in content.js
-2. **TOTP fails**: Verify secret is Base32, check system time
-3. **Not auto-filling**: Check auto-login is enabled, credentials saved
-4. **Encryption error**: Clear storage and re-enter credentials
-
-### Enable Verbose Logging
-
-In `content.js`, change log level to see all messages:
-```javascript
-log(message, 'info'); // Always visible
-```
-
-## Production Readiness Checklist
-
-Before deploying to users:
-
-- [ ] All tests pass
-- [ ] Icons are professional quality
-- [ ] Documentation is complete
-- [ ] Security review completed
-- [ ] Performance is acceptable
-- [ ] Tested on production URLs
-- [ ] Error handling is robust
-- [ ] User feedback collected
-
-## Test Reports
-
-Document test results:
-
-### Test Run: [Date]
-- **Tester**: [Name]
-- **Chrome Version**: [Version]
-- **OS**: [OS Name and Version]
-- **Results**: [Pass/Fail]
-- **Issues Found**: [List issues]
-- **Notes**: [Additional notes]
+- **Date**:
+- **Tester**:
+- **Browser and version**:
+- **OS**:
+- **Site tested**:
+- **Result** (Pass/Fail):
+- **Issues found**:
+- **Notes**:
