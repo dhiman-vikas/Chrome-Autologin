@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Icon Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+    }
+    .icon-preview {
+      display: flex;
+      gap: 30px;
+      margin: 30px 0;
+    }
+    .icon-box {
+      text-align: center;
+    }
+    canvas {
+      border: 1px solid #ddd;
+      margin: 10px 0;
+    }
+    button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #1557b0;
+    }
+    .instructions {
+      background: #e8f0fe;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 Extension Icon Generator</h1>
+    <p>Generate icons for the Chrome extension in different sizes.</p>
+    
+    <div class="icon-preview">
+      <div class="icon-box">
+        <h3>16x16</h3>
+        <canvas id="icon16" width="16" height="16"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon16', 16)">Download</button>
+      </div>
+      
+      <div class="icon-box">
+        <h3>48x48</h3>
+        <canvas id="icon48" width="48" height="48"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon48', 48)">Download</button>
+      </div>
+      
+      <div class="icon-box">
+        <h3>128x128</h3>
+        <canvas id="icon128" width="128" height="128"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon128', 128)">Download</button>
+      </div>
+    </div>
+    
+    <div class="instructions">
+      <h3>📝 Instructions:</h3>
+      <ol>
+        <li>Icons are automatically generated when this page loads</li>
+        <li>Click "Download" under each icon to save it</li>
+        <li>Save the icons in the <code>icons/</code> folder as:
+          <ul>
+            <li>icon16.png</li>
+            <li>icon48.png</li>
+            <li>icon128.png</li>
+          </ul>
+        </li>
+        <li>Alternatively, use any PNG icons you prefer (matching these sizes)</li>
+      </ol>
+    </div>
+  </div>
+  
+  <script>
+    // Generate icon at specified size
+    function generateIcon(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+      
+      // Background gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+      
+      // Draw lock icon
+      const centerX = size / 2;
+      const centerY = size / 2;
+      const scale = size / 128;
+      
+      // Lock body
+      ctx.fillStyle = 'white';
+      ctx.fillRect(
+        centerX - 25 * scale,
+        centerY + 5 * scale,
+        50 * scale,
+        35 * scale
+      );
+      
+      // Lock shackle
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 6 * scale;
+      ctx.beginPath();
+      ctx.arc(
+        centerX,
+        centerY - 5 * scale,
+        18 * scale,
+        Math.PI,
+        0,
+        true
+      );
+      ctx.stroke();
+      
+      // Keyhole
+      ctx.fillStyle = '#667eea';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY + 12 * scale, 6 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.fillRect(
+        centerX - 3 * scale,
+        centerY + 12 * scale,
+        6 * scale,
+        12 * scale
+      );
+    }
+    
+    // Download icon
+    function downloadIcon(canvasId, size) {
+      const canvas = document.getElementById(canvasId);
+      const link = document.createElement('a');
+      link.download = `icon${size}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+    
+    // Generate all icons on load
+    window.onload = function() {
+      generateIcon('icon16', 16);
+      generateIcon('icon48', 48);
+      generateIcon('icon128', 128);
+    };
+  </script>
+</body>
+</html>

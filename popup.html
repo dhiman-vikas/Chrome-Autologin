@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto-Login Popup</title>
+  <style>
+    body {
+      width: 320px;
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .container {
+      padding: 20px;
+    }
+    
+    h1 {
+      font-size: 18px;
+      margin: 0 0 16px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .status {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    
+    .status-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .badge {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .badge.on {
+      background-color: #4CAF50;
+    }
+    
+    .badge.off {
+      background-color: #F44336;
+    }
+    
+    .badge.yes {
+      background-color: #2196F3;
+    }
+    
+    .badge.no {
+      background-color: #FF9800;
+    }
+    
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .btn {
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: white;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn:active {
+      transform: translateY(0);
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .footer {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    
+    .footer a {
+      color: white;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+    }
+    
+    #message {
+      display: none;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-top: 12px;
+      text-align: center;
+    }
+    
+    #message.show {
+      display: block;
+    }
+    
+    #message.success {
+      background-color: rgba(76, 175, 80, 0.3);
+    }
+    
+    #message.error {
+      background-color: rgba(244, 67, 54, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Auto-Login</h1>
+    
+    <div class="status">
+      <div class="status-item">
+        <span>Auto-Login:</span>
+        <span class="badge" id="autoLoginStatus">...</span>
+      </div>
+      <div class="status-item">
+        <span>Profiles:</span>
+        <span class="badge" id="profilesStatus">...</span>
+      </div>
+    </div>
+    
+    <div class="actions">
+      <button class="btn btn-primary" id="triggerLoginBtn">
+        ▶️ Trigger Login Now
+      </button>
+      <button class="btn" id="toggleAutoLoginBtn">
+        🔄 Toggle Auto-Login
+      </button>
+      <button class="btn" id="openOptionsBtn">
+        ⚙️ Open Settings
+      </button>
+    </div>
+    
+    <div id="message"></div>
+    
+    <div class="footer">
+      <p>Generic Auto-Login</p>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
